@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"sort"
 	. "gopkg.in/check.v1"
+	"bytes"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -38,6 +39,8 @@ func (s *MySuite) TestFixedXOR(c *C) {
 	c.Assert(FixedXOR([]byte{}, []byte{}), DeepEquals, []byte{})
 	c.Assert(FixedXOR([]byte{'a', 0xa5, 0x0f}, []byte{'a', 0x5a, 0xff}),
 			DeepEquals, []byte{0, 0xff, 0xf0})
+	c.Assert(FixedXOR([]byte("This is a test"), bytes.Repeat([]byte{0}, 14)),
+		DeepEquals, []byte("This is a test"))
 	in1, _ := hex.DecodeString("1c0111001f010100061a024b53535009181c")
 	in2, _ := hex.DecodeString("686974207468652062756c6c277320657965")
 	expected, _ := hex.DecodeString("746865206b696420646f6e277420706c6179")
@@ -114,4 +117,13 @@ func (s *MySuite) TestFindRepeatingXORKey(c *C) {
 		"72765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b2028316528" +
 		"6326302e27282f")
 	c.Assert(FindRepeatingXORKey(input, 3), DeepEquals, []byte("ICE"))
+}
+
+func (s *MySuite) TestDecryptAes128ecb(c *C) {
+	c.Assert(func() { DecryptAes128Ecb([]byte{}, []byte{}) }, PanicMatches,
+		"Key must not be empty")
+	key := []byte("YELLOW SUBMARINE")
+	c.Assert(DecryptAes128Ecb([]byte{}, key), DeepEquals, []byte{})
+	c.Assert(DecryptAes128Ecb([]byte("%\xd0s\xe4g\x9auģ*ނ\xca}\x8bD"), key),
+		DeepEquals, []byte("This is a test!!"))
 }
