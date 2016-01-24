@@ -162,7 +162,7 @@ func Decrypt1ByteXOR(input []byte) candidate {
 	return candidates[0]
 }
 
-// RepeatingXOR "encrypts" or "decrypts" the input by XORING each byte of it
+// RepeatingXOR "encrypts" or "decrypts" the input by XORing each byte of it
 // with the corresponding byte of the key, repeating when the end of the key
 // is reached.
 func RepeatingXOR(input []byte, key []byte) []byte {
@@ -277,14 +277,13 @@ func DecryptAes128Ecb(input []byte, key []byte) []byte {
 		panic(err)
 	}
 	size := block.BlockSize()
-	plaintext := make([]byte, len(input))
-	for i := 0; i < len(input); i+= size {
-		inputBlock := input[i : i + size]
+	output := []byte{}
+	for i := 0; i < len(input); i += size {
 		dst := make([]byte, size)
-		block.Decrypt(dst, inputBlock)
-		plaintext = append(plaintext, dst...)
+		block.Decrypt(dst, input[i : i + size])
+		output = append(output, dst...)
 	}
-	return plaintext
+	return output
 }
 
 // findRepeatedBlocks searches the input for repeated blocks of the given size,
