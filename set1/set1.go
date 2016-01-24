@@ -328,7 +328,7 @@ func Challenge3() {
 
 func Challenge4() {
 	fmt.Println("\nSet 1 challenge 4\n=================")
-	file, _ := os.Open("4.txt")
+	file, _ := os.Open("set1/4.txt")
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
@@ -354,7 +354,7 @@ func Challenge5() {
 
 func Challenge6() {
 	fmt.Println("\nSet 1 challenge 6\n=================")
-	text, _ := ioutil.ReadFile("6.txt")
+	text, _ := ioutil.ReadFile("set1/6.txt")
 	// using built-in base64 library to decode because only encoding was
 	// included in challenge 1
 	input, _ := base64.StdEncoding.DecodeString(string(text))
@@ -367,7 +367,7 @@ func Challenge6() {
 
 func Challenge7() {
 	fmt.Println("\nSet 1 challenge 7\n=================")
-	text, _ := ioutil.ReadFile("7.txt")
+	text, _ := ioutil.ReadFile("set1/7.txt")
 	ciphertext, _ := base64.StdEncoding.DecodeString(string(text))
 	plaintext := DecryptAes128Ecb(ciphertext, []byte("YELLOW SUBMARINE"))
 	fmt.Println(string(plaintext))
@@ -375,7 +375,7 @@ func Challenge7() {
 
 func Challenge8() {
 	fmt.Println("\nSet 1 challenge 8\n=================")
-	file, _ := os.Open("8.txt")
+	file, _ := os.Open("set1/8.txt")
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
