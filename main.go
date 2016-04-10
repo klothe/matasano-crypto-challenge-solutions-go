@@ -2,6 +2,7 @@ package main
 
 import (
 	"matasano-crypto-challenge-solutions-go/set1"
+	"matasano-crypto-challenge-solutions-go/set2"
 )
 
 func main() {
@@ -13,4 +14,8 @@ func main() {
 	set1.Challenge6()
 	set1.Challenge7()
 	set1.Challenge8()
+
+	set2.Challenge9()
+	set2.Challenge10()
+	set2.Challenge11()
 }
