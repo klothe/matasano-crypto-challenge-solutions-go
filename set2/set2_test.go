@@ -95,8 +95,10 @@ func (s *MySuite) TestEncryptDecryptAes128Cbc(c *C) {
 
 func (s *MySuite) TestDetectMode(c *C) {
 	r := *rand.New(rand.NewSource(1))
+	encrypt := func (input []byte) ([]byte, string) {
+		return EncryptionOracle(input, r)}
 	for i := 0; i < 1000; i++ {
-		detectedMode, actualMode := DetectMode(EncryptionOracle, r)
+		detectedMode, actualMode := DetectMode(encrypt)
 		c.Assert(actualMode, Equals, detectedMode)
 	}
 }

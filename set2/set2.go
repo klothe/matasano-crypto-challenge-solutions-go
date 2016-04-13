@@ -1,6 +1,7 @@
 package set2
 
 import (
+	"bytes"
 	"crypto/aes"
 	"encoding/base64"
 	"fmt"
@@ -123,13 +124,13 @@ func DecryptAes128Cbc(input []byte, key []byte, iv []byte) []byte {
 // encryptRandom encrypts the input, with 5-10 random bytes added
 // before and after it, under a random key. If mode is "ECB", ECB mode
 // is used; otherwise CBC mode is used with a random initialization vector.
-func encryptRandom(input []byte, mode string, r rand.Rand) ([]byte) {
+func encryptRandom(input []byte, mode string, r rand.Rand) []byte {
 	// start with 5-10 random bytes, then append the input, then 5-10
 	// more random bytes
-	s := make([]byte, 5 + r.Intn(6))
+	s := make([]byte, 5+r.Intn(6))
 	r.Read(s)
 	s = append(s, input...)
-	end := make([]byte, 5 + r.Intn(6))
+	end := make([]byte, 5+r.Intn(6))
 	r.Read(end)
 	s = append(s, end...)
 
@@ -164,8 +165,8 @@ func EncryptionOracle(input []byte, r rand.Rand) ([]byte, string) {
 // DetectMode determines whether the given function encrypts its input in ECB
 // mode or in CBC mode. Returns the detected mode and the actual mode, which
 // should be the same (either "ECB" or "CBC").
-func DetectMode(encrypt func([]byte, rand.Rand)([]byte, string),
-		r rand.Rand) (detectedMode string, actualMode string) {
+func DetectMode(encrypt func([]byte) ([]byte, string)) (detectedMode string,
+	actualMode string) {
 	/* in ECB mode, identical input blocks stay identical after being
 	encrypted, but in CBC mode that's unlikely. with 5-10 random bytes at
 	the beginning and 5-10 random bytes plus up to 16 bytes of padding at
@@ -176,7 +177,7 @@ func DetectMode(encrypt func([]byte, rand.Rand)([]byte, string),
 	blocks to be extra sure.)
 	*/
 	input := make([]byte, 80)
-	ciphertext, actualMode := encrypt(input, r)
+	ciphertext, actualMode := encrypt(input)
 	block2 := ciphertext[16:32]
 	block3 := ciphertext[32:48]
 	if string(block2) == string(block3) {
@@ -185,6 +186,21 @@ func DetectMode(encrypt func([]byte, rand.Rand)([]byte, string),
 		detectedMode = "CBC"
 	}
 	return detectedMode, actualMode
+}
+
+// MysteryECB encrypts the input with an unknown string appended to it, using
+// AES-128 in ECB mode using a consistent unknown key. It returns the
+// ciphertext and the mode "ECB" (to be used with DetectMode).
+func MysteryECB(input []byte) ([]byte, string) {
+	key := []byte("itU8LlaSZmK6nkBI")
+	mystery, _ := base64.StdEncoding.DecodeString(
+		"Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg" +
+			"aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq" +
+			"dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg" +
+			"YnkK")
+	input = append([]byte(nil), input...)
+	input = append(input, mystery...)
+	return EncryptAes128Ecb(input, key), "ECB"
 }
 
 func Challenge9() {
@@ -204,13 +220,65 @@ func Challenge10() {
 func Challenge11() {
 	fmt.Println("\nSet 2 challenge 11\n==================")
 	r := *rand.New(rand.NewSource(1))
+	encrypt := func(input []byte) ([]byte, string) {
+		return EncryptionOracle(input, r)
+	}
 	count := 100
 	for i := 0; i < count; i++ {
-		detectedMode, actualMode := DetectMode(EncryptionOracle, r)
+		detectedMode, actualMode := DetectMode(encrypt)
 		if detectedMode != actualMode {
 			panic(fmt.Sprintf("Detected mode %s, actual %s\n",
 				detectedMode, actualMode))
 		}
 	}
 	fmt.Printf("Detected mode %d times\n", count)
+}
+
+func Challenge12() {
+	fmt.Println("\nSet 2 challenge 12\n==================")
+	// to detect block size: start with "A" and encrypt longer strings until
+	// the output gets longer.
+	ciphertext, _ := MysteryECB([]byte{'A'})
+	length1 := len(ciphertext)
+	for length := 2; len(ciphertext) <= length1; length++ {
+		ciphertext, _ = MysteryECB(bytes.Repeat([]byte{'A'}, length))
+	}
+	size := len(ciphertext) - length1
+	fmt.Println("Block size is", size)
+	detectedMode, _ := DetectMode(MysteryECB)
+	fmt.Println("Mode is", detectedMode)
+
+	// encrypt empty string to get length of the mystery string
+	encryptedEmpty, _ := MysteryECB([]byte{})
+	length := len(encryptedEmpty)
+
+	// decrypt 1 byte at a time
+	mystery := make([]byte, 0, length)
+	for i := 0; i < length; i += 1 {
+		// byte range of the relevant block
+		start := (i / size) * size
+		limit := start + size
+
+		// string prepended to the mystery string to control which byte
+		// of that string is at the end of the current block.
+		// length goes from 15 (block size - 1) down to 0.
+		filler := bytes.Repeat([]byte{'A'}, limit-i-1)
+
+		// build a map from each possible encrypted block to the
+		// last byte of plaintext that would have produced it.
+		dictionary := make(map[string]byte)
+		for j := 0; j <= 0xff; j++ {
+			plaintext := append(filler, mystery...)
+			plaintext = append(plaintext, byte(j))
+			ciphertext, _ := MysteryECB(plaintext)
+			dictionary[string(ciphertext[start:limit])] = byte(j)
+		}
+
+		// encrypt the filler, then look up the ciphertext block to
+		// find out the last byte of the plaintext block was.
+		fillerEncrypted, _ := MysteryECB(filler)
+		encryptedBlock := fillerEncrypted[start:limit]
+		mystery = append(mystery, dictionary[string(encryptedBlock)])
+	}
+	fmt.Println(string(mystery))
 }
