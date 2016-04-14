@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"crypto/aes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"matasano-crypto-challenge-solutions-go/set1"
 	"math/rand"
+	"regexp"
+	"strings"
 )
 
 // all-0 initialization vector for AES-128 in CBC mode
@@ -203,6 +206,32 @@ func MysteryECB(input []byte) ([]byte, string) {
 	return EncryptAes128Ecb(input, key), "ECB"
 }
 
+// ParseKeyValuePairs takes a string that looks like
+// "foo=bar&baz=qux&zap=zazzle" and returns a map of key-value pairs from the
+// string separated by "=". Neither keys nor values can contain "=" or "&".
+func ParseKeyValuePairs(input string) (map[string]string, error) {
+	result := make(map[string]string)
+	regex, _ := regexp.Compile("(.*)=(.*)")
+	for _, substr := range strings.SplitN(input, "&", -1) {
+		groups := regex.FindAllStringSubmatch(substr, -1)
+		if groups == nil || len(groups) == 0 || len(groups[0]) < 2 {
+			return nil, errors.New("Invalid string")
+		}
+		key, value := groups[0][1], groups[0][2]
+		result[key] = string(value)
+	}
+	return result, nil
+}
+
+// ProfileFor returns key-value string like "email=foo@bar.com&uid=10&role=user"
+// for the given email address, which must not contain "&" or "=".
+func ProfileFor(email string) string {
+	if strings.ContainsAny(email, "&=") {
+		panic("Characters & and = are not allowed")
+	}
+	return fmt.Sprintf("email=%s&uid=10&role=user", email)
+}
+
 func Challenge9() {
 	fmt.Println("\nSet 2 challenge 9\n=================")
 	s := Pkcs7Pad([]byte("YELLOW SUBMARINE"), 20)
@@ -281,4 +310,13 @@ func Challenge12() {
 		mystery = append(mystery, dictionary[string(encryptedBlock)])
 	}
 	fmt.Println(string(mystery))
+}
+
+func Challenge13() {
+	fmt.Println("\nSet 2 challenge 13\n==================")
+
+	profile := ProfileFor("someone@example.com")
+	key := make([]byte, 16)
+	rand.Read(key)
+	EncryptAes128Ecb([]byte(profile), key)
 }

@@ -102,3 +102,31 @@ func (s *MySuite) TestDetectMode(c *C) {
 		c.Assert(actualMode, Equals, detectedMode)
 	}
 }
+
+func (s *MySuite) TestParseKeyValuePairs(c *C) {
+	m, err := ParseKeyValuePairs("a=b")
+	c.Assert(m, DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, IsNil)
+
+	m, err = ParseKeyValuePairs("a=b&c=d")
+	c.Assert(m, DeepEquals, map[string]string{"a": "b", "c": "d"})
+	c.Assert(err, IsNil)
+
+	m, err = ParseKeyValuePairs("foo=bar&baz=qux&zap=zazzle")
+	c.Assert(m, DeepEquals, map[string]string{"foo": "bar", "baz": "qux", "zap": "zazzle"})
+	c.Assert(err, IsNil)
+
+	errorStrings := []string{ "", "&", "&&", "&=", "&a=b", "a=b&"}
+	for _, s := range errorStrings {
+		m, err := ParseKeyValuePairs(s)
+		c.Assert(m, DeepEquals, map[string]string(nil))
+		c.Assert(err, ErrorMatches, ".*")
+	}
+}
+
+func (s *MySuite) TestProfileFor(c *C) {
+	c.Assert(ProfileFor("foo@bar.com"), Equals, "email=foo@bar.com&uid=10&role=user")
+	c.Assert(ProfileFor("foobar"), Equals, "email=foobar&uid=10&role=user")
+	c.Assert(func() { ProfileFor("foo=bar") }, PanicMatches, ".*")
+	c.Assert(func() { ProfileFor("foo&bar") }, PanicMatches, ".*")
+}
