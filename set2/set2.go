@@ -206,6 +206,56 @@ func MysteryECB(input []byte) ([]byte, string) {
 	return EncryptAes128Ecb(input, key), "ECB"
 }
 
+// DecryptECB takes a function that encrypts its input prepended to an unknown
+// string under an unknown key in ECB mode, and returns the unknown string.
+func DecryptECB(encrypt func([]byte) ([]byte, string)) []byte {
+	// to detect block size: start with "A" and encrypt longer strings until
+	// the output gets longer.
+	ciphertext, _ := encrypt([]byte{'A'})
+	length1 := len(ciphertext)
+	for length := 2; len(ciphertext) <= length1; length++ {
+		ciphertext, _ = encrypt(bytes.Repeat([]byte{'A'}, length))
+	}
+	size := len(ciphertext) - length1
+	fmt.Println("Block size is", size)
+	detectedMode, _ := DetectMode(encrypt)
+	fmt.Println("Mode is", detectedMode)
+
+	// encrypt empty string to get length of the mystery string
+	encryptedEmpty, _ := encrypt([]byte{})
+	length := len(encryptedEmpty)
+
+	// decrypt 1 byte at a time
+	mystery := make([]byte, 0, length)
+	for i := 0; i < length; i += 1 {
+		// byte range of the relevant block
+		start := (i / size) * size
+		limit := start + size
+
+		// string prepended to the mystery string to control which byte
+		// of that string is at the end of the current block.
+		// length goes from 15 (block size - 1) down to 0.
+		filler := bytes.Repeat([]byte{'A'}, limit-i-1)
+
+		// build a map from each possible encrypted block to the
+		// last byte of plaintext that would have produced it.
+		dictionary := make(map[string]byte)
+		for j := 0; j <= 0xff; j++ {
+			plaintext := append(filler, mystery...)
+			plaintext = append(plaintext, byte(j))
+			ciphertext, _ := encrypt(plaintext)
+			dictionary[string(ciphertext[start:limit])] = byte(j)
+		}
+
+		// encrypt the filler, then look up the ciphertext block to
+		// find out what the last byte of the plaintext block was.
+		fillerEncrypted, _ := encrypt(filler)
+		encryptedBlock := fillerEncrypted[start:limit]
+		mystery = append(mystery, dictionary[string(encryptedBlock)])
+	}
+	return mystery
+}
+
 // ParseKeyValuePairs takes a string that looks like
 // "foo=bar&baz=qux&zap=zazzle" and returns a map of key-value pairs from the
 // string separated by "=". Neither keys nor values can contain "=" or "&".
@@ -223,8 +273,9 @@ func ParseKeyValuePairs(input string) (map[string]string, error) {
 	return result, nil
 }
 
-// ProfileFor returns key-value string like "email=foo@bar.com&uid=10&role=user"
-// for the given email address, which must not contain "&" or "=".
+// ProfileFor returns a key-value string like
+// "email=foo@bar.com&uid=10&role=user" for the given email address, which must
+// not contain "&" or "=".
 func ProfileFor(email string) string {
 	if strings.ContainsAny(email, "&=") {
 		panic("Characters & and = are not allowed")
@@ -265,51 +316,7 @@ func Challenge11() {
 
 func Challenge12() {
 	fmt.Println("\nSet 2 challenge 12\n==================")
-	// to detect block size: start with "A" and encrypt longer strings until
-	// the output gets longer.
-	ciphertext, _ := MysteryECB([]byte{'A'})
-	length1 := len(ciphertext)
-	for length := 2; len(ciphertext) <= length1; length++ {
-		ciphertext, _ = MysteryECB(bytes.Repeat([]byte{'A'}, length))
-	}
-	size := len(ciphertext) - length1
-	fmt.Println("Block size is", size)
-	detectedMode, _ := DetectMode(MysteryECB)
-	fmt.Println("Mode is", detectedMode)
-
-	// encrypt empty string to get length of the mystery string
-	encryptedEmpty, _ := MysteryECB([]byte{})
-	length := len(encryptedEmpty)
-
-	// decrypt 1 byte at a time
-	mystery := make([]byte, 0, length)
-	for i := 0; i < length; i += 1 {
-		// byte range of the relevant block
-		start := (i / size) * size
-		limit := start + size
-
-		// string prepended to the mystery string to control which byte
-		// of that string is at the end of the current block.
-		// length goes from 15 (block size - 1) down to 0.
-		filler := bytes.Repeat([]byte{'A'}, limit-i-1)
-
-		// build a map from each possible encrypted block to the
-		// last byte of plaintext that would have produced it.
-		dictionary := make(map[string]byte)
-		for j := 0; j <= 0xff; j++ {
-			plaintext := append(filler, mystery...)
-			plaintext = append(plaintext, byte(j))
-			ciphertext, _ := MysteryECB(plaintext)
-			dictionary[string(ciphertext[start:limit])] = byte(j)
-		}
-
-		// encrypt the filler, then look up the ciphertext block to
-		// find out the last byte of the plaintext block was.
-		fillerEncrypted, _ := MysteryECB(filler)
-		encryptedBlock := fillerEncrypted[start:limit]
-		mystery = append(mystery, dictionary[string(encryptedBlock)])
-	}
-	fmt.Println(string(mystery))
+	fmt.Println(string(DecryptECB(MysteryECB)))
 }
 
 func Challenge13() {
